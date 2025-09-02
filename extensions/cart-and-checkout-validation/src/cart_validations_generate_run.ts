@@ -65,7 +65,8 @@ export function cartValidationsGenerateRun(
   });
 
   // Compute demand per base product by bottle-equivalents.
-  // We will group by base key derived from SKU base or mapping base variant id.
+  // We will group by base key derived from explicit mapping base variant id (preferred)
+  // or by variant id itself if multiplier === 1, else by SKU base (X-1X fallback).
   const demandByKey: Record<string, { productTitle: string; required: number }> = {};
 
   for (const line of lines) {
@@ -73,9 +74,11 @@ export function cartValidationsGenerateRun(
     let baseKey = line.variantId;
     if (settings.mappings && settings.mappings[line.variantId]?.base) {
       baseKey = settings.mappings[line.variantId].base;
+    } else if (line.multiplier === 1) {
+      baseKey = line.variantId; // singles map to themselves
     } else if (enableSkuFallback && line.sku) {
       const m = skuRegex.exec(line.sku);
-      if (m) baseKey = m[1] + "-1X"; // a stable key derived from base sku
+      if (m) baseKey = m[1] + "-1X"; // stable key from base sku
     }
 
     const required = line.quantity * line.multiplier;
@@ -86,7 +89,17 @@ export function cartValidationsGenerateRun(
   }
 
   // Available inventories for base singles should be passed via settings.baseVariantInventories by the fetch target
-  // or populated by Admin-side config. If missing, we don't block.
+  // Shopify injects fetchResult.jsonBody back into input.fetchResult for the run target. Merge if present.
+  try {
+    const invMap = (input as any)?.fetchResult?.jsonBody?.baseVariantInventories;
+    if (invMap && typeof invMap === "object") {
+      settings.baseVariantInventories = {
+        ...(settings.baseVariantInventories || {}),
+        ...invMap,
+      };
+    }
+  } catch {}
+  // If inventories missing, we don't block.
   for (const [baseKey, { productTitle, required }] of Object.entries(demandByKey)) {
     const available = settings.baseVariantInventories?.[baseKey];
     if (typeof available === "number" && available >= 0 && required > available) {

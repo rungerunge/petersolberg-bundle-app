@@ -1,9 +1,23 @@
-import type { CartValidationsGenerateRunInput, CartValidationsGenerateRunResult } from "../generated/api";
+import type { CartValidationsGenerateRunInput, CartValidationsGenerateFetchResult } from "../generated/api";
 
-// Placeholder fetch target to demonstrate how we'd hydrate baseVariantInventories via app proxy.
-// Not wired in schema.toml yet; included for future enhancement if needed.
-export function cartValidationsGenerateFetch(_input: CartValidationsGenerateRunInput): CartValidationsGenerateRunResult {
-  return { operations: [] } as any;
+// Returns a request for Shopify to call our proxy to get inventory availability map
+export function cartValidationsGenerateFetch(input: CartValidationsGenerateRunInput): CartValidationsGenerateFetchResult {
+  // Build a minimal payload of variant IDs & SKUs present in the cart
+  const lines = input.cart.lines.map((l: any) => ({
+    id: l.merchandise?.id,
+    sku: l.merchandise?.sku,
+    qty: l.quantity,
+  }));
+
+  return {
+    request: {
+      url: "https://app-proxy/apps/bbg/base-stock-bulk",
+      method: "POST",
+      policy: { readTimeoutMs: 1000 },
+      headers: [{ name: "Content-Type", value: "application/json" }],
+      jsonBody: { lines },
+    },
+  };
 }
 
 

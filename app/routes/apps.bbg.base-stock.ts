@@ -1,25 +1,35 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
 
 /**
  * App Proxy endpoint: /apps/bbg/base-stock?baseVariantId=gid://shopify/ProductVariant/... or &sku=TEST-1X
  * Returns { available: number }
  */
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { appProxy, admin } = await authenticate.public.appProxy(request);
-
-  // If the request is not a valid app proxy, the above throws 400; continue with minimal context
   const url = new URL(request.url);
   const baseVariantId = url.searchParams.get("baseVariantId");
   const sku = url.searchParams.get("sku");
-  const shop = url.searchParams.get("shop");
+  const shopParam = url.searchParams.get("shop");
+  const shopHeader = request.headers.get("x-shopify-shop-domain") || request.headers.get("Shopify-Shop-Domain");
+  const shop = shopParam || shopHeader || undefined;
 
   if (!baseVariantId && !sku) {
     return json({ error: "Missing baseVariantId or sku" }, { status: 400 });
   }
 
   try {
+    // Prefer app proxy auth if present, otherwise fall back to unauthenticated admin using shop header/param
+    let admin: any;
+    try {
+      const ctx = await authenticate.public.appProxy(request);
+      admin = ctx.admin;
+    } catch {
+      if (!shop) return json({ available: 0, error: "Missing shop context" }, { status: 200 });
+      const unauth = await unauthenticated.admin(shop);
+      admin = unauth.admin;
+    }
+
     // Resolve base variant id by SKU if necessary
     let resolvedVariantId = baseVariantId || null;
     if (!resolvedVariantId && sku && admin) {

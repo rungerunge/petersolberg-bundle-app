@@ -3,7 +3,7 @@
 client_id = "b810f51fcd96b4e28c824386dce6f2a2"
 name = "Peter Solberg Bundle"
 handle = "peter-solberg-bundle"
-application_url = "https://corresponding-cannon-cards-wagon.trycloudflare.com"
+application_url = "https://bundle-app-production.up.railway.app"
 embedded = true
 
 [build]
@@ -26,10 +26,10 @@ api_version = "2025-07"
 scopes = "read_products,read_inventory"
 
 [auth]
-redirect_urls = ["https://corresponding-cannon-cards-wagon.trycloudflare.com/auth/callback", "https://corresponding-cannon-cards-wagon.trycloudflare.com/auth/shopify/callback", "https://corresponding-cannon-cards-wagon.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://bundle-app-production.up.railway.app/auth/callback", "https://bundle-app-production.up.railway.app/auth/shopify/callback", "https://bundle-app-production.up.railway.app/api/auth/callback"]
 
 [app_proxy]
-url = "https://corresponding-cannon-cards-wagon.trycloudflare.com"
+url = "https://bundle-app-production.up.railway.app"
 subpath = "bbg"
 prefix = "apps"
 

@@ -1,0 +1,5 @@
+{
+  "bbg_app_name": "BBG Cart/PDP Guard",
+  "bbg_app_description": "Prevents overselling by limiting case quantities based on single stock."
+}
+

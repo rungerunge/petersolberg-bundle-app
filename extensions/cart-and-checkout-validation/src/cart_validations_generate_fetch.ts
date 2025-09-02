@@ -11,9 +11,9 @@ export function cartValidationsGenerateFetch(input: CartValidationsGenerateRunIn
 
   return {
     request: {
-      url: "https://app-proxy/apps/bbg/base-stock-bulk",
+      url: "shopify:appProxy/apps/bbg/base-stock-bulk",
       method: "POST",
-      policy: { readTimeoutMs: 1000 },
+      policy: { readTimeoutMs: 2000 },
       headers: [{ name: "Content-Type", value: "application/json" }],
       jsonBody: { lines },
     },

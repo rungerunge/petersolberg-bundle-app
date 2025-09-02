@@ -1,10 +1,17 @@
 (function () {
+  console.log('[BBG] Bundle Guard initialized');
+  
   async function getAvailable(baseVariantId) {
+    console.log('[BBG] Fetching inventory for:', baseVariantId);
     try {
       const r = await fetch(`/apps/bbg/base-stock?baseVariantId=${encodeURIComponent(baseVariantId)}`, { credentials: "same-origin" });
       const j = await r.json();
+      console.log('[BBG] Inventory response:', j);
       return Math.max(0, j?.available ?? 0);
-    } catch { return 0; }
+    } catch (e) { 
+      console.error('[BBG] Error fetching inventory:', e);
+      return 0; 
+    }
   }
 
   // Cart drawer: begræns både singles og cases baseret på samlet lager
@@ -55,20 +62,37 @@
 
   // PDP: begræns både singles og cases
   async function applyPdpLimits(root = document) {
+    console.log('[BBG] Applying PDP limits');
     const baseIdEl = root.querySelector("[data-base-variant-id]");
     const caseQty = root.querySelector("[data-bbg-case-qty]");
     const caseBtn = root.querySelector("[data-bbg-case-add]");
     const singleQty = root.querySelector("[data-bbg-single-qty]");
     const singleBtn = root.querySelector("[data-bbg-single-add]");
     const msg = root.querySelector("[data-bbg-msg]");
-    if (!baseIdEl) return;
+    
+    console.log('[BBG] Found elements:', {
+      baseIdEl: !!baseIdEl,
+      caseQty: !!caseQty,
+      caseBtn: !!caseBtn,
+      singleQty: !!singleQty,
+      singleBtn: !!singleBtn,
+      msg: !!msg
+    });
+    
+    if (!baseIdEl) {
+      console.log('[BBG] No base variant ID element found');
+      return;
+    }
 
     const baseId = baseIdEl.getAttribute("data-base-variant-id");
+    console.log('[BBG] Base variant ID:', baseId);
     const available = await getAvailable(baseId);
+    console.log('[BBG] Available inventory:', available);
 
     function setMsg(t){ if (msg) { msg.textContent = t || ""; msg.style.display = t ? "block" : "none"; } }
 
     if (available <= 0) {
+      console.log('[BBG] Out of stock - disabling buttons');
       caseBtn && (caseBtn.disabled = true);
       singleBtn && (singleBtn.disabled = true);
       setMsg("Out of stock");
@@ -77,8 +101,10 @@
     
     // Singles: max = available
     if (singleQty) singleQty.setAttribute("max", String(available));
+    console.log('[BBG] Set singles max to:', available);
     
     if (available < 12) {
+      console.log('[BBG] Not enough for case - disabling case button');
       caseBtn && (caseBtn.disabled = true);
       setMsg(`Only ${available} singles available – not enough for a full case.`);
       return;
@@ -86,6 +112,7 @@
     
     // Cases: max = floor(available / 12)
     const maxCases = Math.floor(available / 12);
+    console.log('[BBG] Max cases allowed:', maxCases);
     if (caseQty) caseQty.setAttribute("max", String(maxCases));
     setMsg("");
   }

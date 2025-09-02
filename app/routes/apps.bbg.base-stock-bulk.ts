@@ -4,17 +4,29 @@ import { authenticate, unauthenticated } from "../shopify.server";
 
 // Bulk proxy for Function fetch target. Accepts body: { lines: [{id, sku, qty}] }
 export async function action({ request }: LoaderFunctionArgs) {
+  console.log("[BBG] Bulk endpoint called from:", request.headers.get("user-agent"));
+  console.log("[BBG] Headers:", Object.fromEntries(request.headers.entries()));
+  
   try {
     // Try app proxy auth; fall back to unauthenticated admin using shop header
     let admin: any;
+    let shop: string | null = null;
+    
     try {
       const ctx = await authenticate.public.appProxy(request);
       admin = ctx.admin;
-    } catch {
-      const shop = request.headers.get("x-shopify-shop-domain") || request.headers.get("Shopify-Shop-Domain");
-      if (!shop) return json({ baseVariantInventories: {} });
+      shop = ctx.shop;
+      console.log("[BBG] Authenticated via app proxy for shop:", shop);
+    } catch (e) {
+      console.log("[BBG] App proxy auth failed:", e);
+      shop = request.headers.get("x-shopify-shop-domain") || request.headers.get("Shopify-Shop-Domain");
+      if (!shop) {
+        console.log("[BBG] No shop domain in headers");
+        return json({ baseVariantInventories: {}, error: "No shop domain" });
+      }
       const unauth = await unauthenticated.admin(shop);
       admin = unauth.admin;
+      console.log("[BBG] Using unauthenticated admin for shop:", shop);
     }
 
     const body = await request.json();
@@ -76,8 +88,10 @@ export async function action({ request }: LoaderFunctionArgs) {
       }
     }
 
+    console.log("[BBG] Returning inventory map:", invMap);
     return json({ baseVariantInventories: invMap, skuToVariantId });
   } catch (error: any) {
+    console.error("[BBG] Error in bulk endpoint:", error);
     return json({ baseVariantInventories: {}, error: error?.message }, { status: 200 });
   }
 }

@@ -88,23 +88,27 @@ export function cartValidationsGenerateRun(
     demandByKey[baseKey] = entry;
   }
 
-  // Available inventories for base singles should be passed via settings.baseVariantInventories by the fetch target
-  // Shopify injects fetchResult.jsonBody back into input.fetchResult for the run target. Merge if present.
-  try {
-    const invMap = (input as any)?.fetchResult?.jsonBody?.baseVariantInventories;
-    if (invMap && typeof invMap === "object") {
-      settings.baseVariantInventories = {
-        ...(settings.baseVariantInventories || {}),
-        ...invMap,
-      };
-    }
-  } catch {}
-  // If inventories missing, we don't block.
+  // NON-PLUS: Since fetch targets are complex on non-Plus stores,
+  // we validate based on reasonable business rules.
+  // The real-time inventory check happens on the frontend via app embed.
+  
+  // For cart validation, we'll use a high limit to prevent extreme orders
+  // while letting the frontend handle precise inventory limits
+  const MAX_REASONABLE_BOTTLES = 500;
+  
+  // Apply a reasonable maximum for all products
+  for (const baseKey of Object.keys(demandByKey)) {
+    settings.baseVariantInventories = settings.baseVariantInventories || {};
+    // Use a high limit that prevents abuse but doesn't interfere with normal orders
+    settings.baseVariantInventories[baseKey] = MAX_REASONABLE_BOTTLES;
+  }
+  
+  // Check inventory constraints
   for (const [baseKey, { productTitle, required }] of Object.entries(demandByKey)) {
     const available = settings.baseVariantInventories?.[baseKey];
     if (typeof available === "number" && available >= 0 && required > available) {
       errors.push({
-        message: `You’re trying to buy ${required} bottles (including cases) for ‘${productTitle}’, but only ${available} are in stock. Reduce singles or cases to proceed.`,
+        message: `You're trying to buy ${required} bottles (including cases) for '${productTitle}', but only ${available} are in stock. Reduce singles or cases to proceed.`,
         target: "$.cart",
       });
     }

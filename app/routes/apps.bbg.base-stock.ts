@@ -2,6 +2,13 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate, unauthenticated } from "../shopify.server";
 
+// Helper to add CORS headers
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 /**
  * App Proxy endpoint: /apps/bbg/base-stock?baseVariantId=gid://shopify/ProductVariant/... or &sku=TEST-1X
  * Returns { available: number }
@@ -15,7 +22,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const shop = shopParam || shopHeader || undefined;
 
   if (!baseVariantId && !sku) {
-    return json({ error: "Missing baseVariantId or sku" }, { status: 400 });
+    return json({ error: "Missing baseVariantId or sku" }, { status: 400, headers: corsHeaders });
   }
 
   try {
@@ -25,7 +32,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       const ctx = await authenticate.public.appProxy(request);
       admin = ctx.admin;
     } catch {
-      if (!shop) return json({ available: 0, error: "Missing shop context" }, { status: 200 });
+      if (!shop) return json({ available: 0, error: "Missing shop context" }, { status: 200, headers: corsHeaders });
       const unauth = await unauthenticated.admin(shop);
       admin = unauth.admin;
     }
@@ -45,7 +52,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     if (!resolvedVariantId || !admin) {
-      return json({ available: 0, shop, resolvedVariantId: resolvedVariantId || null });
+      return json({ available: 0, shop, resolvedVariantId: resolvedVariantId || null }, { headers: corsHeaders });
     }
 
     // Fetch inventory quantity for the base single variant across locations (sum)
@@ -62,9 +69,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const inv = await invResp.json();
     const levels = inv?.data?.productVariant?.inventoryItem?.inventoryLevels?.edges || [];
     const available = levels.reduce((sum: number, e: any) => sum + (e?.node?.available ?? 0), 0);
-    return json({ available, shop, resolvedVariantId });
+    return json({ available, shop, resolvedVariantId }, { headers: corsHeaders });
   } catch (error: any) {
-    return json({ error: error?.message || "Unknown error" }, { status: 500 });
+    return json({ error: error?.message || "Unknown error" }, { status: 500, headers: corsHeaders });
   }
 }
 

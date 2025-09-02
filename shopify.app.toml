@@ -8,6 +8,7 @@ embedded = true
 
 [build]
 include_config_on_deploy = true
+automatically_update_urls_on_dev = true
 
 [webhooks]
 api_version = "2025-07"
@@ -30,7 +31,7 @@ redirect_urls = [ "https://example.com/api/auth" ]
 [app_proxy]
 url = "https://example.com"
 subpath = "bbg"
-prefix = "/apps"
+prefix = "apps"
 
 [pos]
 embedded = false

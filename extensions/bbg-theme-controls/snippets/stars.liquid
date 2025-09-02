@@ -1,0 +1,82 @@
+<script>
+  (function() {
+    const params = new URLSearchParams(location.search);
+    const shop = params.get('shop');
+    async function fetchBaseAvailable(baseVariantId, sku) {
+      const url = new URL('/apps/bbg/base-stock', location.origin);
+      if (shop) url.searchParams.set('shop', shop);
+      if (baseVariantId) url.searchParams.set('baseVariantId', baseVariantId);
+      if (sku) url.searchParams.set('sku', sku);
+      const res = await fetch(url.toString(), { credentials: 'omit' });
+      if (!res.ok) return { available: 0 };
+      return res.json();
+    }
+
+    function applyPdpControls() {
+      const baseVariantId = document.querySelector('[data-bbg-base-variant-id]')?.getAttribute('data-bbg-base-variant-id');
+      const baseSku = document.querySelector('[data-bbg-base-sku]')?.getAttribute('data-bbg-base-sku');
+      if (!baseVariantId && !baseSku) return;
+
+      fetchBaseAvailable(baseVariantId, baseSku).then(({ available }) => {
+        const singleBtn = document.querySelector('[data-bbg-single-button]');
+        const caseBtn = document.querySelector('[data-bbg-case-button]');
+        const caseQtyInput = document.querySelector('[data-bbg-case-qty]');
+        const caseNotice = document.querySelector('[data-bbg-case-notice]');
+
+        if (available <= 0) {
+          if (singleBtn) singleBtn.setAttribute('disabled', 'disabled');
+          if (caseBtn) caseBtn.setAttribute('disabled', 'disabled');
+          if (caseNotice) caseNotice.textContent = 'Sold out';
+          return;
+        }
+        if (caseBtn) {
+          if (available < 12) {
+            caseBtn.setAttribute('disabled', 'disabled');
+            if (caseNotice) caseNotice.textContent = 'Not enough bottles for a case';
+          } else {
+            const maxCases = Math.floor(available / 12);
+            if (caseQtyInput) caseQtyInput.setAttribute('max', String(maxCases));
+            if (caseNotice) caseNotice.textContent = `Max ${maxCases} case(s)`;
+          }
+        }
+      });
+    }
+
+    function applyCartControls() {
+      const container = document.querySelector('[data-bbg-cart]');
+      const baseVariantId = container?.getAttribute('data-bbg-base-variant-id');
+      const baseSku = container?.getAttribute('data-bbg-base-sku');
+      if (!container || (!baseVariantId && !baseSku)) return;
+
+      let singlesInCart = 0;
+      container.querySelectorAll('[data-bbg-line]').forEach((line) => {
+        const qty = Number(line.getAttribute('data-bbg-qty') || '0');
+        const mult = Number(line.getAttribute('data-bbg-mult') || '1');
+        singlesInCart += qty * mult;
+      });
+
+      fetchBaseAvailable(baseVariantId, baseSku).then(({ available }) => {
+        const remaining = Math.max(0, available - singlesInCart);
+        const caseQtyInput = container.querySelector('[data-bbg-case-qty]');
+        const caseBtn = container.querySelector('[data-bbg-case-button]');
+        const caseNotice = container.querySelector('[data-bbg-case-notice]');
+        if (remaining < 12) {
+          if (caseBtn) caseBtn.setAttribute('disabled', 'disabled');
+          if (caseQtyInput) caseQtyInput.setAttribute('max', '0');
+          if (caseNotice) caseNotice.textContent = 'Not enough bottles for a case';
+        } else {
+          const maxCases = Math.floor(remaining / 12);
+          if (caseQtyInput) caseQtyInput.setAttribute('max', String(maxCases));
+          if (caseNotice) caseNotice.textContent = `Max ${maxCases} case(s)`;
+          if (caseBtn) caseBtn.removeAttribute('disabled');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      applyPdpControls();
+      applyCartControls();
+    });
+  })();
+</script>
+

@@ -4,7 +4,13 @@
   async function getAvailable(baseVariantId) {
     console.log('[BBG] Fetching inventory for:', baseVariantId);
     try {
-      const r = await fetch(`/apps/bbg/base-stock?baseVariantId=${encodeURIComponent(baseVariantId)}`, { credentials: "same-origin" });
+      // Use relative URL for App Proxy - Shopify will handle the routing
+      const r = await fetch(`/apps/bbg/base-stock?baseVariantId=${encodeURIComponent(baseVariantId)}`, { 
+        credentials: "same-origin",
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       const j = await r.json();
       console.log('[BBG] Inventory response:', j);
       return Math.max(0, j?.available ?? 0);

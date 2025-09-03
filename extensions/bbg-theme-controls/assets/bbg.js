@@ -91,8 +91,9 @@
       const maxQty = mult === 1 ? rest : Math.floor(rest / mult);
       qtyInput.setAttribute("max", String(maxQty));
 
-      // Opdater hvis over max
+      // Opdater hvis over max eller hvis input ændres
       if (current > maxQty) {
+        console.log(`[BBG] Reducing quantity from ${current} to ${maxQty}`);
         qtyInput.value = String(maxQty);
         const lineKey = line.getAttribute("data-line-key");
         if (lineKey) {
@@ -103,6 +104,33 @@
           }).then(() => document.dispatchEvent(new Event("bbg:cart-updated")));
         }
       }
+      
+      // Add event listener to enforce max on manual input
+      qtyInput.addEventListener('change', async function(e) {
+        const newValue = parseInt(this.value, 10) || 0;
+        console.log(`[BBG] Quantity changed to ${newValue}, max is ${maxQty}`);
+        if (newValue > maxQty) {
+          console.log(`[BBG] Enforcing max quantity of ${maxQty}`);
+          this.value = String(maxQty);
+          const lineKey = line.getAttribute("data-line-key");
+          if (lineKey) {
+            fetch("/cart/change.js", {
+              method: "POST", 
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: lineKey, quantity: maxQty })
+            }).then(() => {
+              console.log('[BBG] Cart updated to enforce max');
+              // Reload cart drawer to show updated quantity
+              if (window.location.pathname.includes('/cart')) {
+                window.location.reload();
+              } else {
+                // For cart drawer, trigger refresh
+                document.dispatchEvent(new CustomEvent('cart:refresh'));
+              }
+            });
+          }
+        }
+      });
     });
   }
 
@@ -212,6 +240,14 @@
   
   // Stop checking after 10 seconds
   setTimeout(() => clearInterval(checkInterval), 10000);
+  
+  // Listen for quantity button clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.quantity__button')) {
+      console.log('[BBG] Quantity button clicked');
+      setTimeout(() => applyCartLimits(document), 100);
+    }
+  });
 
   window.BBG_READY = true;
 })();

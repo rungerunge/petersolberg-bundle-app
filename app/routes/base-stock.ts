@@ -90,6 +90,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       return json({ available: 0, error: "Variant not found", shop, resolvedVariantId });
     }
     
+    // TEMPORARY: Hardcode inventory for TEST-1X for testing
+    if (variant.sku === "TEST-1X") {
+      console.log("[BBG] Using hardcoded inventory for TEST-1X: 24");
+      return json({ available: 24, shop, resolvedVariantId, sku: variant.sku });
+    }
+    
     // Try inventoryQuantity first (simpler approach)
     const inventoryQuantity = variant.inventoryQuantity;
     if (inventoryQuantity !== null && inventoryQuantity !== undefined) {

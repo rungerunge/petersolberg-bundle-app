@@ -56,14 +56,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     // Fetch inventory quantity for the base single variant across locations (sum)
+    console.log("[BBG] Fetching inventory for variant:", resolvedVariantId);
     const invResp = await admin.graphql(
       `#graphql
       query($id: ID!) {
         productVariant(id: $id) {
+          id
+          sku
+          inventoryQuantity
           inventoryItem {
+            id
             inventoryLevels(first: 10) {
               edges {
-                node { available }
+                node { 
+                  available
+                  location {
+                    name
+                  }
+                }
               }
             }
           }
@@ -72,9 +82,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
       { variables: { id: resolvedVariantId } }
     );
     const inv = await invResp.json();
-    const levels = inv?.data?.productVariant?.inventoryItem?.inventoryLevels?.edges || [];
+    console.log("[BBG] Inventory response:", JSON.stringify(inv, null, 2));
+    
+    const variant = inv?.data?.productVariant;
+    if (!variant) {
+      console.error("[BBG] No variant found for ID:", resolvedVariantId);
+      return json({ available: 0, error: "Variant not found", shop, resolvedVariantId });
+    }
+    
+    // Try inventoryQuantity first (simpler approach)
+    const inventoryQuantity = variant.inventoryQuantity;
+    if (inventoryQuantity !== null && inventoryQuantity !== undefined) {
+      console.log("[BBG] Using inventoryQuantity:", inventoryQuantity);
+      return json({ available: inventoryQuantity, shop, resolvedVariantId, sku: variant.sku });
+    }
+    
+    // Fall back to inventoryLevels
+    const levels = variant.inventoryItem?.inventoryLevels?.edges || [];
     const available = levels.reduce((sum: number, e: any) => sum + (e?.node?.available ?? 0), 0);
-    return json({ available, shop, resolvedVariantId });
+    console.log("[BBG] Calculated available from levels:", available);
+    return json({ available, shop, resolvedVariantId, sku: variant.sku });
   } catch (error: any) {
     return json({ error: error?.message || "Unknown error" }, { status: 500 });
   }

@@ -1,11 +1,15 @@
 (function () {
   console.log('[BBG] Bundle Guard initialized');
   
-  async function getAvailable(baseVariantId) {
-    console.log('[BBG] Fetching inventory for:', baseVariantId);
+  async function getAvailable(baseVariantIdOrSku) {
+    console.log('[BBG] Fetching inventory for:', baseVariantIdOrSku);
     try {
+      // Determine if it's a variant ID or SKU
+      const isVariantId = baseVariantIdOrSku && baseVariantIdOrSku.includes('gid://');
+      const param = isVariantId ? 'baseVariantId' : 'sku';
+      
       // Use relative URL for App Proxy - Shopify will handle the routing
-      const r = await fetch(`/apps/bbg/base-stock?baseVariantId=${encodeURIComponent(baseVariantId)}`, { 
+      const r = await fetch(`/apps/bbg/base-stock?${param}=${encodeURIComponent(baseVariantIdOrSku)}`, { 
         credentials: "same-origin",
         headers: {
           'Content-Type': 'application/json',
@@ -42,15 +46,24 @@
   // Cart drawer: begræns både singles og cases baseret på samlet lager
   async function applyCartLimits(root = document) {
     console.log('[BBG] applyCartLimits called');
-    const baseIdEl = root.querySelector("[data-base-variant-id]");
-    console.log('[BBG] Looking for base variant element:', baseIdEl);
-    if (!baseIdEl) {
-      console.log('[BBG] No base variant element found in cart');
+    const cartDrawer = root.querySelector("[data-base-variant-id], [data-base-variant-sku]");
+    console.log('[BBG] Looking for cart drawer element:', cartDrawer);
+    if (!cartDrawer) {
+      console.log('[BBG] No cart drawer element found');
       return;
     }
-    const baseId = baseIdEl.getAttribute("data-base-variant-id");
-    console.log('[BBG] Cart base variant ID:', baseId);
-    const available = await getAvailable(baseId);
+    
+    // Try variant ID first, then SKU
+    const baseId = cartDrawer.getAttribute("data-base-variant-id");
+    const baseSku = cartDrawer.getAttribute("data-base-variant-sku");
+    console.log('[BBG] Cart base variant ID:', baseId, 'SKU:', baseSku);
+    
+    if (!baseId && !baseSku) {
+      console.log('[BBG] No base variant ID or SKU found');
+      return;
+    }
+    
+    const available = await getAvailable(baseId || baseSku);
     console.log('[BBG] Available inventory in cart:', available);
 
     const lines = Array.from(root.querySelectorAll("[data-bbg-line]"));

@@ -22,12 +22,20 @@
 
   // Cart drawer: begræns både singles og cases baseret på samlet lager
   async function applyCartLimits(root = document) {
+    console.log('[BBG] applyCartLimits called');
     const baseIdEl = root.querySelector("[data-base-variant-id]");
-    if (!baseIdEl) return;
+    console.log('[BBG] Looking for base variant element:', baseIdEl);
+    if (!baseIdEl) {
+      console.log('[BBG] No base variant element found in cart');
+      return;
+    }
     const baseId = baseIdEl.getAttribute("data-base-variant-id");
+    console.log('[BBG] Cart base variant ID:', baseId);
     const available = await getAvailable(baseId);
+    console.log('[BBG] Available inventory in cart:', available);
 
     const lines = Array.from(root.querySelectorAll("[data-bbg-line]"));
+    console.log('[BBG] Found cart lines:', lines.length);
     const parseQty = (el) => parseInt(el?.value || "0", 10) || 0;
 
     // Beregn samlet efterspørgsel
@@ -123,20 +131,55 @@
     setMsg("");
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  // Initialize on different events to ensure we catch everything
+  function init() {
+    console.log('[BBG] Initializing Bundle Guard');
     applyPdpLimits(document);
     applyCartLimits(document);
-  });
+  }
+
+  // DOMContentLoaded
+  if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
   
+  // Shopify theme events
   document.addEventListener("shopify:section:load", (e) => {
+    console.log('[BBG] Section loaded');
     applyPdpLimits(e.target);
     applyCartLimits(e.target);
+  });
+  
+  // Cart drawer events
+  document.addEventListener("cart:refresh", () => {
+    console.log('[BBG] Cart refreshed');
+    setTimeout(() => applyCartLimits(document), 100);
+  });
+  
+  document.addEventListener("cart-drawer:open", () => {
+    console.log('[BBG] Cart drawer opened');
+    setTimeout(() => applyCartLimits(document), 100);
   });
 
   // Re-apply on cart updates
   document.addEventListener("bbg:cart-updated", () => {
     applyCartLimits(document);
   });
+  
+  // Also check periodically for dynamic content
+  let checkInterval = setInterval(() => {
+    const cartDrawer = document.querySelector('[id*="CartDrawer"]');
+    if (cartDrawer) {
+      console.log('[BBG] Found cart drawer, applying limits');
+      applyCartLimits(document);
+      clearInterval(checkInterval); // Stop once we've found and processed it
+    }
+  }, 500);
+  
+  // Stop checking after 10 seconds
+  setTimeout(() => clearInterval(checkInterval), 10000);
 
   window.BBG_READY = true;
 })();
